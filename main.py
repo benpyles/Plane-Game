@@ -13,9 +13,11 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 running = True
 
-#Player Pos
+#Key variables
 player_x = 75
 player_y = SCREEN_HEIGHT / 2
+
+velocity = 1
 
 #Load Assets and set character
 player = pygame.image.load("kenney_pixel-shmup/Ships/ship_0000.png")
@@ -36,9 +38,13 @@ while running:
     #Player movement
     keypress = pygame.key.get_pressed()
     if keypress[pygame.K_UP]:
-        player_y -= 3
-    if keypress[pygame.K_DOWN]:
-        player_y += 3
+        player_y -= velocity
+        velocity += 1
+    elif keypress[pygame.K_DOWN]:
+        player_y += velocity
+        velocity += 1
+    else:
+        velocity = 1
 
     #Rendering
     player_rect.topleft = (player_x, player_y)
