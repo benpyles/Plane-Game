@@ -1,5 +1,6 @@
 #importing pygame
 import pygame
+import cv2
 
 #Set up constants
 SCREEN_WIDTH = 800
