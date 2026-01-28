@@ -1,5 +1,5 @@
 #importing pygame
-import pygame, asyncio
+import pygame, asyncio, random
 
 #Set up constants
 SCREEN_WIDTH = 600
@@ -26,9 +26,13 @@ player_rect = player.get_rect()
 #player = pygame.transform.rotate(player, 90)
 player_rect.topleft = (player_x, player_y)
 
-async def main():
-    global SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, SKY_BLUE, PLAYER_HEIGHT, PLAYER_WIDTH, screen, clock, running, player_x, player_y, velocity, player, player_rect
+biome = 1
 
+
+
+async def main():
+    global SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, SKY_BLUE, PLAYER_HEIGHT, PLAYER_WIDTH, screen, clock, running, player_x, player_y, velocity, player, player_rect, biome
+ 
     #Game loop
     while running:   
         #Handles quiting
@@ -57,6 +61,10 @@ async def main():
 
         else:
             velocity = 1
+
+        biome_change_chance = random.randint(1, 1000)
+        if biome_change_chance == 500:
+            biome = random.randint(1,2)
 
         #Player Boundarys
         if player_x < 0:
