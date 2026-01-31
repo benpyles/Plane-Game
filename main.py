@@ -1,224 +1,433 @@
+#Import modules
 import pygame, asyncio, random
 import math
 
-SCREEN_WIDTH = 600
-SCREEN_HEIGHT = 800
-WHITE = (255, 255, 255)
-SKY_BLUE = (224, 251, 252)
-PLAYER_HEIGHT = 32
-PLAYER_WIDTH = 32
-scroll = 0
-FPS = 60
-game_state = "menu"
-menu_scroll = 0
-
+#Setting up audio clock and pygame window
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-clock = pygame.time.Clock()
-running = True
 pygame.display.set_caption("Plane Game")
+pygame.font.init()
 
-player_x = SCREEN_WIDTH / 2
-player_y = 725
-velocity = 1
-grass_bg = pygame.image.load("./Assets/Tiles/Grass/BG/Grass_BG.png")
-dirt_bg = pygame.image.load("./Assets/Tiles/Dirt/BG/DirtBg.png")
-bg_width = 600
-bg_height = grass_bg.get_height()
+#Constant variables
+class GameConfig:
+    SCREEN_WIDTH = 600
+    SCREEN_HEIGHT = 800
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    SKY_BLUE = (224, 251, 252)
+    PLAYER_HEIGHT = 32
+    PLAYER_WIDTH = 32
+    FPS = 60
 
+class GameState:
+    def __init__(self):   
+    
+        #Main game
+        self.player_x = GameConfig.SCREEN_WIDTH / 2
+        self.player_y = 725
+        self.velocity = 1
+        self.score = 0
+        self.last_time = pygame.time.get_ticks()
+
+        #Main game background
+        self.scroll = 0
+        self.grass_bg = pygame.image.load("./Assets/Tiles/Grass/BG/Grass_BG.png").convert()
+        self.dirt_bg = pygame.image.load("./Assets/Tiles/Dirt/BG/DirtBg.png").convert()
+        self.bg_width = self.grass_bg.get_width()
+        self.bg_height = self.grass_bg.get_height()
+        self.biome = 1
+        self.tiles = math.ceil((GameConfig.SCREEN_HEIGHT / self.bg_height)) + 1
+        self.current_screen = "menu"
+        self.lives = 1
+        self.score_font = pygame.font.Font("./Assets/Fonts/CabinSketch-Bold.ttf", 30)
+
+#Obstacle generation and scrolling
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, image, x, y):
+        super().__init__()
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+    def update(self):
+        self.rect.y += 5
+        if self.rect.top > GameConfig.SCREEN_HEIGHT:
+            self.kill()
+
+obstacle_group = pygame.sprite.Group()
+
+class Menu:
 #Ui loading
-button_gap = 20
-setting_button = pygame.image.load("Assets/Ui/Menu/SettingsButton.png")
-setting_button_scaled = pygame.transform.scale(setting_button, (250, 3750/67))
-setting_button_rect = setting_button_scaled.get_rect()
-setting_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/SettingsButtonHover.png"), (250, 3750/67))
-setting_button_hover_rect = setting_button_hover.get_rect()
-setting_button_rect.topleft = (SCREEN_WIDTH / 2 - setting_button_rect.width / 2, SCREEN_HEIGHT / 2 - setting_button_rect.height)
-setting_button_hover_rect.topleft = (SCREEN_WIDTH / 2 - setting_button_hover_rect.width / 2, SCREEN_HEIGHT / 2 - setting_button_hover_rect.height)
-play_button = pygame.image.load("Assets/Ui/Menu/PlayButton.png")
-play_button_scaled = pygame.transform.scale(play_button, (250, 3750/67))
-play_button_rect = play_button_scaled.get_rect()
-play_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/PlayButtonHover.png"), (250, 3750/67))
-play_button_hover_rect = play_button_hover.get_rect()
-play_button_rect.topleft = (SCREEN_WIDTH / 2 - play_button_rect.width / 2, setting_button_rect.y - button_gap - play_button_rect.height)
-play_button_hover_rect.topleft = (SCREEN_WIDTH / 2 - play_button_hover_rect.width / 2, setting_button_rect.y - button_gap - play_button_rect.height)
-achievements_button = pygame.image.load("Assets/Ui/Menu/AchievementsButton.png")
-achievements_button_scaled = pygame.transform.scale(achievements_button, (250, 3750/67))
-achievements_button_rect = setting_button_scaled.get_rect()
-achievements_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/AchievementsButtonHover.png"), (250, 3750/67))
-achievements_button_hover_rect = setting_button_hover.get_rect()
-achievements_button_rect.topleft = (SCREEN_WIDTH / 2 - achievements_button_rect.width / 2, setting_button_rect.y + button_gap + achievements_button_rect.height)
-achievements_button_hover_rect.topleft = (SCREEN_WIDTH / 2 - achievements_button_hover_rect.width / 2, setting_button_rect.y + button_gap + achievements_button_rect.height)
-cloud = pygame.image.load("Assets/Ui/Menu/Cloud.png")
-cloud_rect = cloud.get_rect()
-menu_music = pygame.mixer.Sound("./Assets/Music/MenuMusic.wav")
-menu_music_playing = False
-menu_bg = pygame.image.load("Assets/Ui/Menu/Background.png").convert()
-menu_tiles = math.ceil((SCREEN_WIDTH / menu_bg.get_width())) + 1
-
-class Cloud(pygame.sprite.Sprite):
     def __init__(self):
+        self.button_gap = 20
+        self._load_buttons()
+        self._load_backgrounds()
+        self.menu_scroll = 0
+        self.cloud_group = pygame.sprite.Group()
+
+    def _load_buttons(self):
+
+        #Settings button
+        self.setting_button = pygame.image.load("Assets/Ui/Menu/SettingsButton.png").convert_alpha()
+        self.setting_button_scaled = pygame.transform.scale(self.setting_button, (250, 3750/67))
+        self.setting_button_rect = self.setting_button_scaled.get_rect()
+        self.setting_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/SettingsButtonHover.png"), (250, 3750/67)).convert_alpha()
+        self.setting_button_hover_rect = self.setting_button_hover.get_rect()
+        self.setting_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.setting_button_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.setting_button_rect.height)
+        self.setting_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.setting_button_hover_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.setting_button_hover_rect.height)
+    
+        #Play button
+        self.play_button = pygame.image.load("Assets/Ui/Menu/PlayButton.png").convert_alpha()
+        self.play_button_scaled = pygame.transform.scale(self.play_button, (250, 3750/67))
+        self.play_button_rect = self.play_button_scaled.get_rect()
+        self.play_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/PlayButtonHover.png"), (250, 3750/67)).convert_alpha()
+        self.play_button_hover_rect = self.play_button_hover.get_rect()
+        self.play_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_button_rect.width / 2, self.setting_button_rect.y - self.button_gap - self.play_button_rect.height)
+        self.play_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_button_hover_rect.width / 2, self.setting_button_rect.y - self.button_gap - self.play_button_rect.height)
+        #Achievements button
+        self.achievements_button = pygame.image.load("Assets/Ui/Menu/AchievementsButton.png").convert_alpha()
+        self.achievements_button_scaled = pygame.transform.scale(self.achievements_button, (250, 3750/67))
+        self.achievements_button_rect = self.setting_button_scaled.get_rect()
+        self.achievements_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/AchievementsButtonHover.png"), (250, 3750/67)).convert_alpha()
+        self.achievements_button_hover_rect = self.setting_button_hover.get_rect()
+        self.achievements_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.achievements_button_rect.width / 2, self.setting_button_rect.y + self.button_gap + self.achievements_button_rect.height)
+        self.achievements_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.achievements_button_hover_rect.width / 2, self.setting_button_rect.y + self.button_gap + self.achievements_button_rect.height)
+
+    def _load_backgrounds(self):
+        #Loading bg images/ assets
+        #Menu Background
+        self.cloud = pygame.image.load("Assets/Ui/Menu/Cloud.png").convert_alpha()
+        self.cloud_rect = self.cloud.get_rect()
+        self.menu_bg = pygame.image.load("Assets/Ui/Menu/Background.png").convert()
+        self.menu_tiles = math.ceil((GameConfig.SCREEN_WIDTH / self.menu_bg.get_width())) + 1
+
+    def update_scroll(self):
+        self.scroll -= 2
+        if abs(self.scroll) > self.menu_bg.get_width():
+            self.scroll = 0
+    def spawn_cloud(self):
+        if random.randint(1, 60) == 50:
+            new_cloud = Cloud(self.cloud)
+            self.cloud_group.add(new_cloud)
+
+class GameOver:
+#Ui loading
+    def __init__(self):
+        self.button_gap = 20
+        self._load_buttons()
+        self._load_backgrounds()
+        self.menu_scroll = 0
+        self.cloud_group = pygame.sprite.Group()
+
+    def _load_buttons(self):
+
+        #Settings button
+    
+        #Play button
+        self.play_again_button = pygame.image.load("Assets/Ui/GameOver/PlayAgain.png").convert_alpha()
+        self.play_again_button_scaled = pygame.transform.scale(self.play_again_button, (250, 3750/67))
+        self.play_again_button_rect = self.play_again_button_scaled.get_rect()
+        self.play_again_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/GameOver/PlayAgainHover.png"), (250, 3750/67)).convert_alpha()
+        self.play_again_button_hover_rect = self.play_again_button_hover.get_rect()
+        self.play_again_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_again_button_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.play_again_button_rect.height)
+        self.play_again_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_again_button_hover_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.play_again_button_rect.height)
+
+        #Achievements button
+        self.main_menu_button = pygame.image.load("Assets/Ui/GameOver/MainMenu.png").convert_alpha()
+        self.main_menu_button_scaled = pygame.transform.scale(self.main_menu_button, (250, 3750/67))
+        self.main_menu_button_rect = self.main_menu_button_scaled.get_rect()
+        self.main_menu_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/GameOver/MainMenuHover.png"), (250, 3750/67)).convert_alpha()
+        self.main_menu_button_hover_rect = self.main_menu_button_hover.get_rect()
+        self.main_menu_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.main_menu_button_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.main_menu_button_rect.height - self.button_gap)
+        self.main_menu_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.main_menu_button_hover_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.main_menu_button_rect.height - self.button_gap)
+
+    def _load_backgrounds(self):
+        #Loading bg images/ assets
+        #Menu Background
+        self.cloud = pygame.image.load("Assets/Ui/Menu/Cloud.png").convert_alpha()
+        self.cloud_rect = self.cloud.get_rect()
+        self.menu_bg = pygame.image.load("Assets/Ui/Menu/Background.png").convert()
+        self.menu_tiles = math.ceil((GameConfig.SCREEN_WIDTH / self.menu_bg.get_width())) + 1
+
+    def update_scroll(self):
+        self.scroll -= 2
+        if abs(self.scroll) > self.menu_bg.get_width():
+            self.scroll = 0
+    def spawn_cloud(self):
+        if random.randint(1, 60) == 50:
+            new_cloud = Cloud(self.cloud)
+            self.cloud_group.add(new_cloud)
+
+
+#Cloud class for scrolling clouds
+class Cloud(pygame.sprite.Sprite):
+    def __init__(self, cloud):
         super().__init__()
         self.image = cloud
         self.rect = self.image.get_rect()
-        self.rect.x = SCREEN_WIDTH
-        self.rect.y = random.randint(0, SCREEN_HEIGHT - menu_bg.get_height())
+        self.rect.x = GameConfig.SCREEN_WIDTH
+        self.rect.y = random.randint(0, GameConfig.SCREEN_HEIGHT - 200)
         self.speed = random.randint(2,6)
     def update(self):
         self.rect.x -= self.speed
         if self.rect.right < 0:
             self.kill()
-
 cloud_group = pygame.sprite.Group()
 
-#Player loading
-player = pygame.image.load("Assets/Ships/ship_0000.png")
-player_rect = player.get_rect()
-player_rect.topleft = (player_x, player_y)
+#For mediapipe
+class InputManager:
+    def __init__(self):
+        self.move_left = False
+        self.move_right = False
+        self.target_x = None
+    def update_from_keyboard(self):
+        keys = pygame.key.get_pressed()
+        self.move_left = keys[pygame.K_LEFT]
+        self.move_right = keys[pygame.K_RIGHT]
+    
+    def update_from_mediapipe(self, normalized_x):
+        self.target_x = normalized_x * GameConfig.SCREEN_WIDTH
+    
 
-biome = 1
-loaded_obstacles = []
-
-dirt_obstacles = [pygame.transform.scale(pygame.image.load(f"Assets/Tiles/Dirt/obstacles/dirt_obstacle_{obstacle}.png"), (64, 64)) for obstacle in range(1,6)]
-grass_obstacles = [pygame.transform.scale(pygame.image.load(f"Assets/Tiles/Grass/Obstacles/grass_obstacle_{obstacle}.png"), (64, 64)) for obstacle in range(1,6)]
-
-tiles = math.ceil((SCREEN_HEIGHT / bg_height)) + 1
+#Menu music
+class Music:
+    menu_music = pygame.mixer.Sound("./Assets/Music/MenuMusic1.ogg")
+    menu_music_playing = False
+    game_music = pygame.mixer.Sound("./Assets/Music/GameMusic.ogg")
+    game_music_playing = False
+    game_over_music_playing = False
+    game_over_music = pygame.mixer.Sound("./Assets/Music/GameOver.ogg")
 
 async def main():
-    global SCREEN_HEIGHT, menu_scroll, menu_bg, menu_music, menu_music_playing, cloud_group, play_button_rect, cloud, cloud_rect, play_button, play_button_scaled, SCREEN_WIDTH, game_state,  WHITE, SKY_BLUE, scroll, PLAYER_HEIGHT, PLAYER_WIDTH, screen, clock, running, player_x, player_y, velocity, player, player_rect, biome, dirt_obstacles, grass_obstacles, loaded_obstacles, grass_bg, dirt_bg, bg_width, bg_height
+    running = True
+    screen = pygame.display.set_mode((GameConfig.SCREEN_WIDTH, GameConfig.SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
 
+    game_state = GameState()
+    menu = Menu()
+    game_over = GameOver()
+    input_mgr = InputManager()
+
+    #Player loading
+    player = pygame.image.load("Assets/Ships/ship_0000.png").convert_alpha()
+    player_rect = player.get_rect()
+    player_rect.topleft = (game_state.player_x, game_state.player_y)
+
+    #Load obstacles and sets up the last obstacle spawn var
     last_obstacle_spawn_time = pygame.time.get_ticks()
+    dirt_obstacles = [pygame.transform.scale(pygame.image.load(f"Assets/Tiles/Dirt/obstacles/dirt_obstacle_{i}.png").convert_alpha(), (64, 64)) for i in range(1, 6)]
+    grass_obstacles = [pygame.transform.scale(pygame.image.load(f"Assets/Tiles/Grass/obstacles/grass_obstacle_{i}.png").convert_alpha(), (64, 64)) for i in range(1, 6)]
+    
+    #Main game loop
+    while running:
 
-    while running:   
+        #Handles exiting
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-        if game_state == "menu":
-            if not menu_music_playing:
-                menu_music.play(-1)
-                menu_music_playing = True
-            cloud_spawn = random.randint(1,60)
-            if cloud_spawn == 50:
-                new_cloud = Cloud()
-                cloud_group.add(new_cloud)
-            screen.fill(SKY_BLUE)
-            cloud_group.update()
-            cloud_group.draw(screen)
-            for i in range(0, menu_tiles):
-                screen.blit(menu_bg, (i * menu_bg.get_width() + scroll, 500))
-            scroll -= 2
+        #Menu game state
+        if game_state.current_screen == "menu":
 
+            #Handles music
+            if not Music.menu_music_playing:
+                Music.menu_music.play(-1)
+                Music.menu_music_playing = True
+            
+            menu.spawn_cloud()
+            screen.fill(GameConfig.SKY_BLUE)
+            menu.cloud_group.update()
+            menu.cloud_group.draw(screen)
+
+            #Scrolling mountains bg
+            for i in range(0, menu.menu_tiles):
+                screen.blit(menu.menu_bg, (i * menu.menu_bg.get_width() + menu.menu_scroll, 500))
+            menu.menu_scroll -= 2
+        
             #reset scroll
-            if abs(scroll) > bg_width:
-                scroll = 0
+            if abs(menu.menu_scroll) > menu.menu_bg.get_width():
+                menu.menu_scroll = 0
 
-            if play_button_rect.collidepoint(pygame.mouse.get_pos()):
-                screen.blit(play_button_hover, play_button_hover_rect)
+            #Play button hover and click detection / animation
+            if menu.play_button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen.blit(menu.play_button_hover, menu.play_button_hover_rect)
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     print("Clicked")
-                    game_state = "playing"
+                    game_state.current_screen = "playing"
+            else:
+                screen.blit(menu.play_button_scaled, menu.play_button_rect)
 
-            else:
-                screen.blit(play_button_scaled, play_button_rect)
-            if setting_button_rect.collidepoint(pygame.mouse.get_pos()):
-                screen.blit(setting_button_hover, setting_button_hover_rect)
+            #Settings button 
+            if menu.setting_button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen.blit(menu.setting_button_hover, menu.setting_button_hover_rect)
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    game_state = "settings"
+                    game_state.current_screen = "settings"
             else:
-                screen.blit(setting_button_scaled, setting_button_rect)
-            if achievements_button_rect.collidepoint(pygame.mouse.get_pos()):
-                screen.blit(achievements_button_hover, achievements_button_hover_rect)
+                screen.blit(menu.setting_button_scaled, menu.setting_button_rect)
+
+            #Achievements button
+            if menu.achievements_button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen.blit(menu.achievements_button_hover, menu.achievements_button_hover_rect)
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    game_state = "achievements"
+                    game_state.current_screen = "achievements"
             else:
-                screen.blit(achievements_button_scaled, achievements_button_rect)
-            
-        if game_state == "settings":
+                screen.blit(menu.achievements_button_scaled, menu.achievements_button_rect)
+        
+        #Settings game state
+        if game_state.current_screen == "settings":
             print("settings")
 
-        if game_state == "playing":
-            menu_music_playing = False
-            screen.fill(SKY_BLUE)
+        #Game over game state
+        if game_state.current_screen == "game_over":
+
+            #Handles music
+            if not Music.game_over_music_playing:
+                Music.game_music.fadeout(1000)
+                Music.game_music_playing = False
+                Music.game_over_music.play(-1)
+                Music.game_over_music_playing = True
+                Music.menu_music_playing = True
+            
+            menu.spawn_cloud()
+            screen.fill(GameConfig.SKY_BLUE)
+            menu.cloud_group.update()
+            menu.cloud_group.draw(screen)
+
+            #Scrolling mountains bg
+            for i in range(0, menu.menu_tiles):
+                screen.blit(menu.menu_bg, (i * menu.menu_bg.get_width() + menu.menu_scroll, 500))
+            menu.menu_scroll -= 2
+        
+            #reset scroll
+            if abs(menu.menu_scroll) > menu.menu_bg.get_width():
+                menu.menu_scroll = 0
+
+            #Play button hover and click detection / animation
+            if game_over.play_again_button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen.blit(game_over.play_again_button_hover, game_over.play_again_button_hover_rect)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    print("Clicked")
+                    game_state.current_screen = "playing"
+                    Music.game_over_music_playing = False
+            else:
+                screen.blit(game_over.play_again_button_scaled, game_over.play_again_button_rect)
+            
+            if game_over.main_menu_button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen.blit(game_over.main_menu_button_hover, game_over.play_again_button_hover_rect)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    game_state.current_screen = "menu"
+                    Music.game_over_music_playing = False
+                    Music.game_over_music.fadeout(1000)
+            else:
+                screen.blit(game_over.main_menu_button_scaled, game_over.play_again_button_rect)
+
+        #Settings game state
+        if game_state.current_screen == "settings":
+            print("settings")
+
+        #Main game
+        if game_state.current_screen == "playing":
+
+            #Turns of menu music gets time and refreshes screen
+            if not Music.game_music_playing:
+                Music.game_music.play(-1)
+                Music.game_music_playing = True
+                Music.menu_music.fadeout(1000)
+                Music.menu_music_playing = False
+                Music.game_over_music.fadeout(1000)
+                Music.menu_music_playing = False
+
+            screen.fill(GameConfig.SKY_BLUE)
             current_time = pygame.time.get_ticks()
 
-            keypress = pygame.key.get_pressed()
-            if keypress[pygame.K_LEFT] and keypress[pygame.K_RIGHT]:
-                velocity = 1
-            if keypress[pygame.K_LEFT]:
-                player_x -= velocity
-                velocity += 0.15
-                if velocity > 9:
-                    velocity = 9
-            elif keypress[pygame.K_RIGHT]:
-                player_x += velocity
-                velocity += 0.15
-                if velocity > 9:
-                    velocity = 9
+            input_mgr.update_from_keyboard()
+
+            if input_mgr.move_left and input_mgr.move_right:
+                game_state.velocity = 1
+            elif input_mgr.move_left:
+                game_state.player_x -= game_state.velocity
+                game_state.velocity += 0.15
+                if game_state.velocity > 9:
+                    game_state.velocity = 9
+            elif input_mgr.move_right:
+                game_state.player_x += game_state.velocity
+                game_state.velocity += 0.15
+                if game_state.velocity > 9:
+                    game_state.velocity = 9
             else:
-                velocity = 1
+                game_state.velocity = 1
 
-            for obstacle in loaded_obstacles:
-                obstacle[3] += 5
-                obstacle[1].topleft = (obstacle[2], int(obstacle[3]))
+            #Biome and obstacle stuff
 
-            loaded_obstacles = [obs for obs in loaded_obstacles if obs[3] < 850]
+            #Random biome change
+            if random.randint(1, 700) == 500:
+                game_state.biome = random.randint(1,2)
 
-            biome_change_chance = random.randint(1, 1000)
-            if biome_change_chance == 500:
-                biome = random.randint(1,2)
-
+            #Spawns new obstacle if its been more than 500 ticks
             if current_time - last_obstacle_spawn_time > 500:
-                if biome == 1:
-                    image = random.choice(grass_obstacles)
+                if game_state.biome == 1:
+                    current_list = grass_obstacles
                 else:
-                    image = random.choice(dirt_obstacles)
+                    current_list = dirt_obstacles
 
-                spawn_x = random.randint(0, SCREEN_WIDTH - 64)
-                spawn_y = -70
-
-                rect = image.get_rect()
-                rect.topleft = (spawn_x, spawn_y)
-
-                loaded_obstacles.append([image, rect, spawn_x, spawn_y])
-
+                #Generates obstacle
+                image = random.choice(current_list)
+                spawn_x = random.randint(0, GameConfig.SCREEN_WIDTH - 64)
+                spawn_y = -70         
+                new_obstacle = Obstacle(image, spawn_x, spawn_y)
+                obstacle_group.add(new_obstacle)
                 last_obstacle_spawn_time = current_time
 
-            if player_x < 0:
-                player_x = 0
-            if player_x + PLAYER_WIDTH > SCREEN_WIDTH:
-                player_x = SCREEN_WIDTH - PLAYER_WIDTH
-            if player_y < 0:
-                player_y = 0
-            if player_y + PLAYER_HEIGHT > SCREEN_HEIGHT:
-                player_y = SCREEN_HEIGHT - PLAYER_HEIGHT
+            #Player boundarys
+            if game_state.player_x < 0:
+                game_state.player_x = 0
+            if game_state.player_x + GameConfig.PLAYER_WIDTH > GameConfig.SCREEN_WIDTH:
+                game_state.player_x = GameConfig.SCREEN_WIDTH - GameConfig.PLAYER_WIDTH
+            if game_state.player_y < 0:
+                game_state.player_y = 0
+            if game_state.player_y + GameConfig.PLAYER_HEIGHT > GameConfig.SCREEN_HEIGHT:
+                game_state.player_y = GameConfig.SCREEN_HEIGHT - GameConfig.PLAYER_HEIGHT
 
-            player_rect.topleft = (player_x, player_y)
+            #Updates player pos
+            player_rect.topleft = (game_state.player_x, game_state.player_y)
 
-            for i in range(0, tiles):
-                if biome == 1:
-                    screen.blit(grass_bg, (0, (i - 1) * bg_height + scroll))
-                elif biome == 2:
-                    screen.blit(dirt_bg, (0, (i -1) * bg_height +scroll))
+            #Scrolls background
+            for i in range(0, game_state.tiles):
+                if game_state.biome == 1:
+                    screen.blit(game_state.grass_bg, (0, (i - 1) * game_state.bg_height + game_state.scroll))
+                elif game_state.biome == 2:
+                    screen.blit(game_state.dirt_bg, (0, (i -1) * game_state.bg_height + game_state.scroll))
+            game_state.scroll += 5
+            if game_state.scroll >= game_state.bg_height:
+                game_state.scroll = 0
 
-
-            scroll += 5
-
-            if scroll >= bg_height:
-                scroll = 0
-
-            for obstacle in loaded_obstacles:
-                if player_rect.colliderect(obstacle[1]):
-                    print("Hit!")
-
+            #More obstacle stuff
+            obstacle_group.update()
+            obstacle_group.draw(screen)
             screen.blit(player, player_rect)
-            for obstacle in loaded_obstacles:
-                screen.blit(obstacle[0], obstacle[1])
+            for obstacle in obstacle_group:
+                if player_rect.colliderect(obstacle.rect):
+                    game_state.lives -= 1
+                    if game_state.lives <1:
+                        game_state.current_screen = "game_over"
+                        obstacle_group.empty()
+                        break
+            
+            #Score Handling
+            current_time = pygame.time.get_ticks()
+            dt = (current_time - game_state.last_time)
+            game_state.last_time = current_time
+            game_state.score += dt
+            score_text = game_state.score_font.render(str(game_state.score), True, GameConfig.BLACK )
+            score_text_rect = score_text.get_rect()
+            score_text_rect.topleft = (590 - score_text_rect.width, 5)
+            screen.blit(score_text, score_text_rect)
 
+        
+        #Flips screen and limits fps
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick(GameConfig.FPS)
         await asyncio.sleep(0)
 
     pygame.quit()
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
