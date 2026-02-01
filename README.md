@@ -1,9 +1,10 @@
-# Horizon Lock - Still under construction 🚧
+# Horizon Lock - Still under construction
+![Game Banner](./Assets/Preview/HorizonLockBanner.jpg)
 
 [Horizon - Lock]
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- Easy to run python game where you steer a plane with your hands while dodging obstacles
+- Easy to run python game where you steer a plane with your hands while dodging obstacles via a AI model
 
 - Web compatible
 
