@@ -28,6 +28,7 @@ class GameState:
         self.velocity = 1
         self.score = 0
         self.last_time = pygame.time.get_ticks()
+        self.reset_score = True
 
         #Main game background
         self.scroll = 0
@@ -36,10 +37,21 @@ class GameState:
         self.bg_width = self.grass_bg.get_width()
         self.bg_height = self.grass_bg.get_height()
         self.biome = 1
-        self.tiles = math.ceil((GameConfig.SCREEN_HEIGHT / self.bg_height)) + 1
+        self.tiles_count = math.ceil((GameConfig.SCREEN_HEIGHT / self.bg_height)) + 1
+        self.tile_map = [1 for _ in range(self.tiles_count)]
         self.current_screen = "menu"
         self.lives = 1
         self.score_font = pygame.font.Font("./Assets/Fonts/CabinSketch-Bold.ttf", 30)
+    def get_mode(self, mode):
+        if mode == "easy":
+            return 700
+        if mode == "medium":
+            return 400
+        if mode == "hard":
+            return 200
+        if mode == "extreme":
+            return 50
+
 
 #Obstacle generation and scrolling
 class Obstacle(pygame.sprite.Sprite):
@@ -63,34 +75,54 @@ class Menu:
         self._load_backgrounds()
         self.menu_scroll = 0
         self.cloud_group = pygame.sprite.Group()
+        self.mode = "easy"
 
     def _load_buttons(self):
-
-        #Settings button
-        self.setting_button = pygame.image.load("Assets/Ui/Menu/SettingsButton.png").convert_alpha()
-        self.setting_button_scaled = pygame.transform.scale(self.setting_button, (250, 3750/67))
-        self.setting_button_rect = self.setting_button_scaled.get_rect()
-        self.setting_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/SettingsButtonHover.png"), (250, 3750/67)).convert_alpha()
-        self.setting_button_hover_rect = self.setting_button_hover.get_rect()
-        self.setting_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.setting_button_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.setting_button_rect.height)
-        self.setting_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.setting_button_hover_rect.width / 2, GameConfig.SCREEN_HEIGHT / 2 - self.setting_button_hover_rect.height)
-    
         #Play button
         self.play_button = pygame.image.load("Assets/Ui/Menu/PlayButton.png").convert_alpha()
         self.play_button_scaled = pygame.transform.scale(self.play_button, (250, 3750/67))
         self.play_button_rect = self.play_button_scaled.get_rect()
         self.play_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/PlayButtonHover.png"), (250, 3750/67)).convert_alpha()
         self.play_button_hover_rect = self.play_button_hover.get_rect()
-        self.play_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_button_rect.width / 2, self.setting_button_rect.y - self.button_gap - self.play_button_rect.height)
-        self.play_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.play_button_hover_rect.width / 2, self.setting_button_rect.y - self.button_gap - self.play_button_rect.height)
+        self.play_button_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 - self.button_gap -self.play_button_rect.height / 2)
+        self.play_button_hover_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 - self.button_gap - self.play_button_rect.height /2)
         #Achievements button
-        self.achievements_button = pygame.image.load("Assets/Ui/Menu/AchievementsButton.png").convert_alpha()
+        self.achievements_button = pygame.image.load("Assets/Ui/Menu/Easy.png").convert_alpha()
         self.achievements_button_scaled = pygame.transform.scale(self.achievements_button, (250, 3750/67))
-        self.achievements_button_rect = self.setting_button_scaled.get_rect()
-        self.achievements_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/AchievementsButtonHover.png"), (250, 3750/67)).convert_alpha()
-        self.achievements_button_hover_rect = self.setting_button_hover.get_rect()
-        self.achievements_button_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.achievements_button_rect.width / 2, self.setting_button_rect.y + self.button_gap + self.achievements_button_rect.height)
-        self.achievements_button_hover_rect.topleft = (GameConfig.SCREEN_WIDTH / 2 - self.achievements_button_hover_rect.width / 2, self.setting_button_rect.y + self.button_gap + self.achievements_button_rect.height)
+        self.achievements_button_rect = self.achievements_button_scaled.get_rect()
+        self.achievements_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/EasyHover.png"), (250, 3750/67)).convert_alpha()
+        self.achievements_button_hover_rect = self.achievements_button_hover.get_rect()
+        self.achievements_button_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.achievements_button_rect.height / 2)
+        self.achievements_button_hover_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.achievements_button_rect.height / 2)
+
+        #Medium
+        self.medium_button = pygame.image.load("Assets/Ui/Menu/Medium.png").convert_alpha()
+        self.medium_button_scaled = pygame.transform.scale(self.medium_button, (250, 3750/67))
+        self.medium_button_rect = self.medium_button_scaled.get_rect()
+        self.medium_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/MediumHover.png"), (250, 3750/67)).convert_alpha()
+        self.medium_button_hover_rect = self.medium_button_hover.get_rect()
+        self.medium_button_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.medium_button_rect.height / 2)
+        self.medium_button_hover_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.medium_button_rect.height / 2)
+
+        #Hard
+        self.hard_button = pygame.image.load("Assets/Ui/Menu/Hard.png").convert_alpha()
+        self.hard_button_scaled = pygame.transform.scale(self.hard_button, (250, 3750/67))
+        self.hard_button_rect = self.hard_button_scaled.get_rect()
+        self.hard_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/HardHover.png"), (250, 3750/67)).convert_alpha()
+        self.hard_button_hover_rect = self.hard_button_hover.get_rect()
+        self.hard_button_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.hard_button_rect.height / 2)
+        self.hard_button_hover_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.hard_button_rect.height / 2)
+
+        #Extreme
+        self.extreme_button = pygame.image.load("Assets/Ui/Menu/Extreme.png").convert_alpha()
+        self.extreme_button_scaled = pygame.transform.scale(self.extreme_button, (250, 3750/67))
+        self.extreme_button_rect = self.extreme_button_scaled.get_rect()
+        self.extreme_button_hover = pygame.transform.scale(pygame.image.load("Assets/Ui/Menu/ExtremeHover.png"), (250, 3750/67)).convert_alpha()
+        self.extreme_button_hover_rect = self.extreme_button_hover.get_rect()
+        self.extreme_button_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.extreme_button_rect.height / 2)
+        self.extreme_button_hover_rect.center = (GameConfig.SCREEN_WIDTH / 2, GameConfig.SCREEN_HEIGHT / 2 + self.button_gap + self.extreme_button_rect.height / 2)
+
+
 
     def _load_backgrounds(self):
         #Loading bg images/ assets
@@ -120,8 +152,6 @@ class GameOver:
         self.cloud_group = pygame.sprite.Group()
 
     def _load_buttons(self):
-
-        #Settings button
     
         #Play button
         self.play_again_button = pygame.image.load("Assets/Ui/GameOver/PlayAgain.png").convert_alpha()
@@ -173,6 +203,22 @@ class GameOver:
             new_cloud = Cloud(self.cloud)
             self.cloud_group.add(new_cloud)
 
+    def _load_backgrounds(self):
+        #Loading bg images/ assets
+        #Menu Background
+        self.cloud = pygame.image.load("Assets/Ui/Menu/Cloud.png").convert_alpha()
+        self.cloud_rect = self.cloud.get_rect()
+        self.menu_bg = pygame.image.load("Assets/Ui/Menu/Background.png").convert()
+        self.menu_tiles = math.ceil((GameConfig.SCREEN_WIDTH / self.menu_bg.get_width())) + 1
+
+    def update_scroll(self):
+        self.scroll -= 2
+        if abs(self.scroll) > self.menu_bg.get_width():
+            self.scroll = 0
+    def spawn_cloud(self):
+        if random.randint(1, 60) == 50:
+            new_cloud = Cloud(self.cloud)
+            self.cloud_group.add(new_cloud)
 
 #Cloud class for scrolling clouds
 class Cloud(pygame.sprite.Sprite):
@@ -244,6 +290,7 @@ async def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     click = True
+
         #Menu game state
         if game_state.current_screen == "menu":
 
@@ -269,36 +316,51 @@ async def main():
             #Play button hover and click detection / animation
             if menu.play_button_rect.collidepoint(pygame.mouse.get_pos()):
                 screen.blit(menu.play_button_hover, menu.play_button_hover_rect)
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if click:
                     print("Clicked")
                     game_state.score = 0
+                    click = False
+                    game_state.reset_score = True
                     game_state.current_screen = "playing"
             else:
                 screen.blit(menu.play_button_scaled, menu.play_button_rect)
-
-            #Settings button 
-            if menu.setting_button_rect.collidepoint(pygame.mouse.get_pos()):
-                screen.blit(menu.setting_button_hover, menu.setting_button_hover_rect)
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    game_state.current_screen = "settings"
-            else:
-                screen.blit(menu.setting_button_scaled, menu.setting_button_rect)
-
-            #Achievements button
-            if menu.achievements_button_rect.collidepoint(pygame.mouse.get_pos()):
-                screen.blit(menu.achievements_button_hover, menu.achievements_button_hover_rect)
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    game_state.current_screen = "achievements"
-            else:
-                screen.blit(menu.achievements_button_scaled, menu.achievements_button_rect)
-        
-        #Settings game state
-        if game_state.current_screen == "settings":
-            print("settings")
-
+            if menu.mode == "easy":
+                if menu.achievements_button_rect.collidepoint(pygame.mouse.get_pos()):
+                    screen.blit(menu.achievements_button_hover, menu.achievements_button_hover_rect)
+                    if click:
+                        menu.mode = "medium"
+                        click = False
+                else:
+                    screen.blit(menu.achievements_button_scaled, menu.achievements_button_rect)
+            elif menu.mode == "medium":
+                if menu.medium_button_rect.collidepoint(pygame.mouse.get_pos()):
+                    screen.blit(menu.medium_button_hover, menu.medium_button_hover_rect)
+                    if click:
+                        menu.mode = "hard"
+                        click = False
+                else:
+                    screen.blit(menu.medium_button_scaled, menu.medium_button_rect)
+            elif menu.mode == "hard":
+                if menu.hard_button_rect.collidepoint(pygame.mouse.get_pos()):
+                    screen.blit(menu.hard_button_hover, menu.hard_button_hover_rect)
+                    if click:
+                        menu.mode = "extreme"
+                        click = False
+                else:
+                    screen.blit(menu.hard_button_scaled, menu.hard_button_rect)
+            elif menu.mode == "extreme":
+                if menu.extreme_button_rect.collidepoint(pygame.mouse.get_pos()):
+                    screen.blit(menu.extreme_button_hover, menu.extreme_button_hover_rect)
+                    if click:
+                        menu.mode = "easy"
+                        click = False
+                else:
+                    screen.blit(menu.extreme_button_scaled, menu.extreme_button_rect)
+            game_state.score = 0
+            
         #Game over game state
         if game_state.current_screen == "game_over":
-
+            game_state.reset_score = True
             #Handles music
             if not Music.game_over_music_playing:
                 Music.game_music.fadeout(1000)
@@ -327,31 +389,35 @@ async def main():
                 if click:
                     print("Clicked")
                     game_state.score = 0
+                    click = False
                     game_state.current_screen = "playing"
+                    game_state.reset_score = True
                     Music.game_over_music_playing = False
             else:
                 screen.blit(game_over.play_again_button_scaled, game_over.play_again_button_rect)
             
             if game_over.main_menu_button_rect.collidepoint(pygame.mouse.get_pos()):
                 screen.blit(game_over.main_menu_button_hover, game_over.main_menu_button_hover_rect)
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if click:
                     Music.game_over_music_playing = False
                     game_state.score = 0
+                    click = False
                     Music.game_over_music.fadeout(1000)
                     game_state.current_screen = "menu"
             else:
                 screen.blit(game_over.main_menu_button_scaled, game_over.main_menu_button_rect)
             screen.blit(game_over.score_button_scaled, game_over.score_button_rect)
             #screen.blit(game_over.score, (400, 200)
+            score = 0
             game_over.display_score(screen, game_state.score)
-
-
-        #Settings game state
-        if game_state.current_screen == "settings":
-            print("settings")
 
         #Main game
         if game_state.current_screen == "playing":
+
+            if game_state.reset_score:
+                game_state.score = 0
+                game_state.last_time = pygame.time.get_ticks()
+                game_state.reset_score = False
 
             #Turns of menu music gets time and refreshes screen
             if not Music.game_music_playing:
@@ -382,27 +448,6 @@ async def main():
             else:
                 game_state.velocity = 1
 
-            #Biome and obstacle stuff
-
-            #Random biome change
-            if random.randint(1, 700) == 500:
-                game_state.biome = random.randint(1,2)
-
-            #Spawns new obstacle if its been more than 500 ticks
-            if current_time - last_obstacle_spawn_time > 400:
-                if game_state.biome == 1:
-                    current_list = grass_obstacles
-                else:
-                    current_list = dirt_obstacles
-
-                #Generates obstacle
-                image = random.choice(current_list)
-                spawn_x = random.randint(0, GameConfig.SCREEN_WIDTH - 64)
-                spawn_y = -70         
-                new_obstacle = Obstacle(image, spawn_x, spawn_y)
-                obstacle_group.add(new_obstacle)
-                last_obstacle_spawn_time = current_time
-
             #Player boundarys
             if game_state.player_x < 0:
                 game_state.player_x = 0
@@ -417,14 +462,36 @@ async def main():
             player_rect.topleft = (game_state.player_x, game_state.player_y)
 
             #Scrolls background
-            for i in range(0, game_state.tiles):
-                if game_state.biome == 1:
-                    screen.blit(game_state.grass_bg, (0, (i - 1) * game_state.bg_height + game_state.scroll))
-                elif game_state.biome == 2:
-                    screen.blit(game_state.dirt_bg, (0, (i -1) * game_state.bg_height + game_state.scroll))
+
             game_state.scroll += 5
             if game_state.scroll >= game_state.bg_height:
                 game_state.scroll = 0
+                game_state.tile_map.pop()
+
+                if random.randint(1, 100) <= 5:
+                    new_biome = 2 if game_state.tile_map[0] == 1 else 1
+                else:
+                    new_biome = game_state.tile_map[0]
+                game_state.tile_map.insert(0, new_biome)
+            for i in range(len(game_state.tile_map)):
+                current_tile_biome = game_state.tile_map[i]
+                bg_img = game_state.grass_bg if current_tile_biome == 1 else game_state.dirt_bg
+
+                y_pos = (i -1) * game_state.bg_height + game_state.scroll
+                screen.blit(bg_img, (0, y_pos))
+            mode_delay = game_state.get_mode(menu.mode)
+            if current_time - last_obstacle_spawn_time > mode_delay:
+                current_top_biome = game_state.tile_map[0]
+                if current_top_biome == 1:
+                    current_list = grass_obstacles
+                else:
+                    current_list = dirt_obstacles
+                image = random.choice(current_list)
+                spawn_x = random.randint(0, GameConfig.SCREEN_WIDTH - 64)
+                spawn_y = -70
+                new_obstacle = Obstacle(image, spawn_x, spawn_y)
+                obstacle_group.add(new_obstacle)
+                last_obstacle_spawn_time = current_time
 
             #More obstacle stuff
             obstacle_group.update()
